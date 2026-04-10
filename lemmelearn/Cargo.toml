@@ -1,0 +1,17 @@
+[[bin]]
+name = "amor_speak"
+path = "src/speak.rs"
+
+[package]
+name = "lemmelearn"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+reqwest = { version = "0.12", features = ["json"], default-features = false, optional-features = ["rustls-tls"] }
+tokio = {version = "1" , features = ["full"]}
+serde_json = "1.0"
+teloxide = "0.13"
+log = "0.4"
+env_logger = "0.11"
