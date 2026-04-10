@@ -28,6 +28,10 @@ fn extract_json_arg(args: &str, key: &str) -> Option<String> {
     None
 }
 
+fn is_command_tool_name(name: &str) -> bool {
+    matches!(name, "execute_command" | "bash")
+}
+
 fn clean_output(text: &str) -> String {
     let mut result = text.to_string();
     result = result.replace("**", "");
@@ -478,6 +482,8 @@ async fn process_telegram_message(state: &AppState, input: &str) -> String {
         // Use curl instead of reqwest
         let output = std::process::Command::new("curl")
             .arg("-s")
+            .arg("--max-time")
+            .arg("25")
             .arg("-X")
             .arg("POST")
             .arg("https://api.groq.com/openai/v1/chat/completions")
@@ -547,6 +553,14 @@ async fn process_telegram_message(state: &AppState, input: &str) -> String {
         }
         eprintln!("DEBUG: manual_calls parsed: {:?}", manual_calls);
         
+        let only_structured_commands =
+            !choice.tool_calls.is_empty()
+                && choice
+                    .tool_calls
+                    .iter()
+                    .all(|tc| is_command_tool_name(tc.function.name.as_str()));
+        let only_manual_commands =
+            !manual_calls.is_empty() && manual_calls.iter().all(|(name, _)| name == "bash");
         let has_tools = !choice.tool_calls.is_empty() || !manual_calls.is_empty();
         let mut outs = if has_tools { 
             let mut o = Vec::new(); 
@@ -634,6 +648,10 @@ async fn process_telegram_message(state: &AppState, input: &str) -> String {
             chat_hist.push(ChatMsg { role: "assistant".to_string(), content: content.clone() }); 
             return content; 
         }
+
+        if only_structured_commands || only_manual_commands {
+            return outs.join("\n");
+        }
         
         chat_hist.push(ChatMsg { role: "user".to_string(), content: format!("Result: {}", outs.join("\n")) });
     }
@@ -709,6 +727,8 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
         
         let output = std::process::Command::new("curl")
             .arg("-s")
+            .arg("--max-time")
+            .arg("25")
             .arg("-X")
             .arg("POST")
             .arg("https://api.groq.com/openai/v1/chat/completions")
@@ -763,6 +783,14 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
             }
         }
         
+        let only_structured_commands =
+            !choice.tool_calls.is_empty()
+                && choice
+                    .tool_calls
+                    .iter()
+                    .all(|tc| is_command_tool_name(tc.function.name.as_str()));
+        let only_manual_commands =
+            !manual_calls.is_empty() && manual_calls.iter().all(|(name, _)| name == "bash");
         let has_tools = !choice.tool_calls.is_empty() || !manual_calls.is_empty();
         let outs = if has_tools { 
             let mut o = Vec::new(); 
@@ -819,6 +847,9 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
             o 
         } else { tool_executor.execute(&content).await.1 };
         if outs.is_empty() { chat_hist.push(ChatMsg { role: "assistant".to_string(), content: content.clone() }); return content; }
+        if only_structured_commands || only_manual_commands {
+            return outs.join("\n");
+        }
         chat_hist.push(ChatMsg { role: "user".to_string(), content: format!("Result: {}", outs.join("\n")) });
     }
     "No response".to_string()
