@@ -1,0 +1,1 @@
+#!/usr/bin/env python3\nimport subprocess\nimport time\nimport os\n\ndef read_cpu_temperature():\n    \
