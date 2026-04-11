@@ -363,6 +363,45 @@ async fn run_telegram_loop(state: Arc<AppState>) {
             }
         }
         
+        // Check Instagram for new DMs
+        let insta_output = std::process::Command::new("python3")
+            .arg("/home/fuckall/code/amor/lemmelearn/amorshi/scripts/insta_listener.py")
+            .arg("check")
+            .output();
+        
+        if let Ok(out) = insta_output {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            if stdout.starts_with('[') && stdout.len() > 2 {
+                eprintln!("INSTAGRAM: New messages detected");
+                if let Ok(dms) = serde_json::from_str::<Vec<serde_json::Value>>(&stdout) {
+                    for dm in dms.iter().take(3) {
+                        if let Some(text) = dm.get("text").as_str() {
+                            if let Some(username) = dm.get("username").as_str() {
+                                let user_id = dm.get("user_id").as_str().unwrap_or("");
+                                eprintln!("INSTAGRAM DM from {}: {}", username, text);
+                                
+                                // Process message like Telegram
+                                let insta_state = AppState { config: state.config.clone(), model: state.model.clone(), master: state.master.clone() };
+                                let response = clean_output(&tokio::runtime::Runtime::new().unwrap().block_on(process_telegram_message(&insta_state, text)));
+                                
+                                // Send response back via Instagram
+                                if !response.is_empty() && !response.contains("No response") {
+                                    std::process::Command::new("python3")
+                                        .arg("/home/fuckall/code/amor/lemmelearn/amorshi/scripts/insta_listener.py")
+                                        .arg("send")
+                                        .arg(user_id)
+                                        .arg(&response)
+                                        .output()
+                                        .ok();
+                                    eprintln!("INSTAGRAM: Sent response to {}", username);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
 }

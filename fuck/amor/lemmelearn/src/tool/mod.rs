@@ -4,6 +4,7 @@ pub mod reminders;
 pub mod memory;
 pub mod scripts;
 pub mod bash;
+pub mod instagram;
 
 pub use search::WebSearch;
 pub use files::FileOps;
@@ -11,6 +12,7 @@ pub use reminders::Reminders;
 pub use memory::Memory;
 pub use scripts::Scripts;
 pub use bash::Bash;
+pub use instagram::Instagram;
 
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +38,7 @@ pub struct ToolExecutor {
     pub memory: Memory,
     pub scripts: Scripts,
     pub bash: Bash,
+    pub instagram: Instagram,
 }
 
 impl ToolExecutor {
@@ -47,6 +50,7 @@ impl ToolExecutor {
             memory: Memory::new(),
             scripts: Scripts::new(),
             bash: Bash::new(),
+            instagram: Instagram::new(),
         }
     }
 
@@ -223,6 +227,15 @@ impl ToolExecutor {
             if !cmd.is_empty() {
                 let result = self.bash.execute(&format!("bash:\"{}\"", cmd));
                 outputs.push(format!("[bash] → {}", result.output));
+            }
+        }
+        
+        // Instagram tool
+        if text.contains("instagram:") {
+            let cmd = text[text.find("instagram:").unwrap() + 11..].trim().to_string();
+            if !cmd.is_empty() {
+                let result = self.instagram.execute(&cmd);
+                outputs.push(format!("[instagram] → {}", result.output));
             }
         }
         

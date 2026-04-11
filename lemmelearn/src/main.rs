@@ -237,7 +237,8 @@ async fn run_telegram_loop(state: Arc<AppState>) {
                             if let Some((from, msg)) = rest.split_once('|') {
                                 println!("{}📱 WA:{} {}", YELLOW, RESET, msg);
                                 
-                                let response = clean_output(&process_telegram_message(&state, msg).await);
+                                // Use a placeholder chat_id for WhatsApp (9999999999)
+                                let response = clean_output(&process_telegram_message(&state, msg, 9999999999).await);
                                 
                                 // Send back via WhatsApp
                                 send_whatsapp_message(&from, &response);
@@ -395,7 +396,7 @@ fn run_console_mode() {
     println!("{}API: {}{} ({} keys)\n", BLUE, config.active_account, RESET, config.accounts.len());
 
     tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap().block_on(async {
-        run_console_chat(&mut config, model, master).await.ok();
+        run_console_chat(&mut config, model, master, 123456789).await.ok();
     });
 
     println!("\n🔄 Restarting service...");
@@ -698,7 +699,7 @@ async fn process_telegram_message(state: &AppState, input: &str, chat_id: i64) -
     "No response".to_string()
 }
 
-async fn run_console_chat(config: &mut config::Config, model: String, master: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_console_chat(config: &mut config::Config, model: String, master: String, chat_id: i64) -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
     let mut chat_hist: Vec<ChatMsg> = Vec::new();
     let tool_executor = ToolExecutor::new();
