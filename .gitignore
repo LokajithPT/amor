@@ -3,3 +3,11 @@
 whatsapp*.js
 whatsapp*.sh
 lemmelearn/.git_local_backup/
+instagram_session.json
+node_modules/
+package.json
+package-lock.json
+*.pyc
+__pycache__/
+auth/
+session.json

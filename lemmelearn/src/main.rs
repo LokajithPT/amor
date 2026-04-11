@@ -346,7 +346,7 @@ async fn run_telegram_loop(state: Arc<AppState>) {
                                 
                                 println!("{}📱 TG:{} {}", YELLOW, RESET, text);
                                 
-                                let response = clean_output(&process_telegram_message(&state, &text).await);
+                                let response = clean_output(&process_telegram_message(&state, &text, chat_id).await);
                                 
                                 // Send response using curl
                                 let send_url = format!("https://api.telegram.org/bot{}/sendMessage", tg_token);
@@ -424,26 +424,40 @@ fn restart_service() {
     }
 }
 
-async fn process_telegram_message(state: &AppState, input: &str) -> String {
+async fn process_telegram_message(state: &AppState, input: &str, chat_id: i64) -> String {
     let mut chat_hist: Vec<ChatMsg> = Vec::new();
     let tool_executor = ToolExecutor::new();
     
-    // Read memory.md and include in system prompt
-    let home = std::env::var("HOME").unwrap_or_default();
-    let memory_path = if home == "/home/fuckall" {
-        std::path::PathBuf::from("/home/fuckall/amorshi/memory.md")
-    } else {
-        std::path::Path::new(&home).join("amorshi/memory.md")
-    };
-    let memory_content = std::fs::read_to_string(&memory_path).unwrap_or_default();
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let base_path = std::path::PathBuf::from(format!("{}/amorshi", if home == "/home/fuckall" { "/home/fuckall" } else { &home }));
     
-    let memory_section = if !memory_content.trim().is_empty() {
-        format!("\n\n## YOUR MEMORY (from past conversations):\n{}\n", memory_content.trim())
-    } else {
-        String::new()
-    };
+    // Read global memory.md
+    let global_memory_path = base_path.join("memory.md");
+    let global_memory = std::fs::read_to_string(&global_memory_path).unwrap_or_default();
     
-    let full_system = format!("{}{}", state.master, memory_section);
+    // Read user-specific memory
+    let user_memory_path = base_path.join("users").join(format!("{}.md", chat_id));
+    let user_memory = std::fs::read_to_string(&user_memory_path).unwrap_or_default();
+    
+    // Check if user has tool access (for now, only chat_id 5678901234 has tools)
+    let has_tools = chat_id == 5678901234;
+    
+    // Build memory section
+    let mut memory_section = String::new();
+    if !global_memory.trim().is_empty() {
+        memory_section.push_str(&format!("\n## GLOBAL MEMORY:\n{}\n", global_memory.trim()));
+    }
+    if !user_memory.trim().is_empty() {
+        memory_section.push_str(&format!("\n## THIS USER'S MEMORY:\n{}\n", user_memory.trim()));
+    }
+    
+    // Build system prompt based on user
+    let mut full_system = state.master.clone();
+    full_system.push_str(&memory_section);
+    
+    // Add user identity section
+    let user_section = format!("\n## CURRENT USER\nChat ID: {}\nTool Access: {}\n", chat_id, if has_tools { "FULL" } else { "NONE - conversational only" });
+    full_system.push_str(&user_section);
     
     chat_hist.push(ChatMsg { role: "system".to_string(), content: full_system });
     chat_hist.push(ChatMsg { role: "user".to_string(), content: input.to_string() });
@@ -561,7 +575,18 @@ async fn process_telegram_message(state: &AppState, input: &str) -> String {
                     .all(|tc| is_command_tool_name(tc.function.name.as_str()));
         let only_manual_commands =
             !manual_calls.is_empty() && manual_calls.iter().all(|(name, _)| name == "bash");
-        let has_tools = !choice.tool_calls.is_empty() || !manual_calls.is_empty();
+        
+        // Check if user has tool access
+        let user_has_tools = chat_id == 5678901234;
+        let tool_calls_requested = !choice.tool_calls.is_empty() || !manual_calls.is_empty();
+        
+        // If tools requested but user doesn't have access, skip tool execution
+        let has_tools = if tool_calls_requested && !user_has_tools {
+            false
+        } else {
+            tool_calls_requested
+        };
+        
         let mut outs = if has_tools { 
             let mut o = Vec::new(); 
             for tc in &choice.tool_calls { 
@@ -646,6 +671,20 @@ async fn process_telegram_message(state: &AppState, input: &str) -> String {
         
         if outs.is_empty() { 
             chat_hist.push(ChatMsg { role: "assistant".to_string(), content: content.clone() }); 
+            
+            // Update user memory file with this conversation
+            let user_memory_path = base_path.join("users").join(format!("{}.md", chat_id));
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let user_memory_entry = format!("### {}\n- User: {}\n- AMOR: {}\n\n", 
+                timestamp, input, content.trim());
+            
+            let current_user_mem = std::fs::read_to_string(&user_memory_path).unwrap_or_default();
+            let updated_user_mem = format!("{}{}", current_user_mem, user_memory_entry);
+            std::fs::write(&user_memory_path, &updated_user_mem).ok();
+            
             return content; 
         }
 

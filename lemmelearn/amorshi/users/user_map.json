@@ -1,0 +1,10 @@
+{
+  "users": {
+    "5678901234": {
+      "name": "loki",
+      "has_tools": true,
+      "created_at": "2024",
+      "notes": "Primary admin, tech enthusiast, direct communication"
+    }
+  }
+}
