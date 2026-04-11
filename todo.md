@@ -456,3 +456,84 @@ If you obey that rule:
 
 - [behemoth.md](/home/skedaddle/code/amor/behemoth.md)
 - [social_mcp_research.md](/home/skedaddle/code/amor/social_mcp_research.md)
+
+---
+
+# User Preferences & Communication Relay System
+
+## User Preferences File (loki.md / lokipref.md)
+
+Create a root-level preferences file that controls how AMOR handles each user:
+
+**File**: `/home/fuckall/amorshi/loki.md` (or similar naming)
+
+```markdown
+# User Preferences
+
+## Users
+- 5678901234 (loki): Primary admin, full access, report everything
+- user2_telegram_id: Casual friend, no tools, conversational
+- user3_whatsapp_id: Work contact, brief responses
+
+## Instructions per user
+- loki: Report to me when anyone else messages you
+- user2: Friendly, casual, keep conversations light
+- user3: Professional, brief, don't waste their time
+
+## Communication Rules
+- If anyone asks "tell loki to [action]", immediately notify Loki via Telegram
+- For other users, respond normally without relaying to Loki unless urgent
+```
+
+## Reporting System
+
+AMOR should report to Loki (primary admin):
+- When new users first contact AMOR
+- When anyone requests to relay a message to Loki
+- Daily/weekly summary of conversations (optional)
+- Any suspicious or important activity
+
+## Request Relay Feature
+
+When any user says:
+- "tell loki to call me"
+- "let loki know that..."
+- "can you message loki about..."
+
+AMOR should:
+1. Extract the message/request
+2. Send Telegram message to Loki: "[User] wants you to: [request]"
+3. Confirm to the user that Loki has been notified
+
+This lets AMOR be a communication hub between Loki and others.
+
+---
+
+# Real Friend Experience - Conversation Memory
+
+## On Boot - Load All History
+
+When AMOR starts, for EACH user:
+1. Read their message history from SQLite/user files
+2. Build conversation summary (last talked, topics discussed)
+3. Inject into system prompt for that user
+
+## Per-User Data Structure
+
+```
+/home/fuckall/amorshi/users/
+  {platform}_{chat_id}/
+    messages.db      - all messages with timestamps
+    profile.json    - personality traits, preferences
+    summary.md      - "User talks casually, uses emojis, interested in X"
+    last_seen.txt   - Unix timestamp of last message
+```
+
+## Context Awareness
+
+AMOR should naturally reference past conversations:
+- "Hey, we talked about that yesterday..."
+- "Last week you mentioned you were working on..."
+- "Remember when you said..."
+
+This creates the "real friend" feeling - AMOR remembers everything.
