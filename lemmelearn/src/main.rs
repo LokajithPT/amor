@@ -185,6 +185,25 @@ fn lookup_whatsapp_jid(name: &str) -> Option<String> {
     None
 }
 
+fn lookup_whatsapp_jid_by_jid(jid: &str) -> Option<String> {
+    // Look up user by their JID
+    let user_map_path = "/home/fuckall/code/amor/lemmelearn/amorshi/users/user_map.json";
+    if let Ok(content) = std::fs::read_to_string(user_map_path) {
+        if let Ok(map) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(users) = map.get("users").and_then(|u| u.as_object()) {
+                for (username, data) in users {
+                    if let Some(user_jid) = data.get("whatsapp").and_then(|j| j.as_str()) {
+                        if user_jid == jid {
+                            return Some(username.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ChatMsg { role: String, content: String }
 
@@ -303,6 +322,13 @@ async fn run_telegram_loop(state: Arc<AppState>) {
                                 let msg = msg.trim();
                                 
                                 if msg.is_empty() {
+                                    continue;
+                                }
+                                
+                                // Only respond to known users (check if jid is in user_map)
+                                let known_user = lookup_whatsapp_jid_by_jid(jid);
+                                if known_user.is_none() {
+                                    println!("{}⏭️ Skipping unknown user: {}{}", YELLOW, jid, RESET);
                                     continue;
                                 }
                                 
