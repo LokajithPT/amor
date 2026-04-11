@@ -1,10 +1,20 @@
 {
   "users": {
-    "5678901234": {
-      "name": "loki",
+    "loki": {
+      "telegram": "5678901234",
+      "name": "Loki",
       "has_tools": true,
       "created_at": "2024",
-      "notes": "Primary admin, tech enthusiast, direct communication"
+      "notes": "Primary admin"
+    },
+    "naveen": {
+      "whatsapp": "917010381233@s.whatsapp.net",
+      "name": "Naveen",
+      "platforms": ["whatsapp"],
+      "memory_file": "naveen.md",
+      "identified": false,
+      "created_at": "2026-04-11",
+      "custom_rules": "Keep it casual, bro style"
     }
   }
 }
