@@ -124,6 +124,42 @@ fn send_whatsapp_message(to: &str, message: &str) {
     std::fs::write(out_queue, line).ok();
 }
 
+fn generate_chat_id_from_jid(jid: &str) -> i64 {
+    // Generate a consistent chat_id from WhatsApp JID
+    // Remove @s.whatsapp.net and take first 10 digits
+    let clean = jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+    // Try to parse as number
+    if let Ok(num) = clean.parse::<i64>() {
+        return num % 10000000000; // Take last 10 digits
+    }
+    // Hash the string
+    let mut hash: i64 = 0;
+    for (i, c) in clean.chars().enumerate() {
+        hash = hash.wrapping_add((c as i64).wrapping_mul(i as i64 + 1));
+    }
+    hash % 10000000000
+}
+
+fn check_and_send_whatsapp_out() {
+    // Check out queue for messages to send
+    let out_queue = "/tmp/whatsapp_out.txt";
+    if std::path::Path::new(out_queue).exists() {
+        if let Ok(content) = std::fs::read_to_string(out_queue) {
+            for line in content.lines() {
+                if let Some((to, msg)) = line.split_once('|') {
+                    let _ = std::process::Command::new("python3")
+                        .arg("/home/fuckall/whatsapp_wrapper.py")
+                        .arg("send")
+                        .arg(to)
+                        .arg(msg)
+                        .output();
+                }
+            }
+        }
+        std::fs::remove_file(out_queue).ok();
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ChatMsg { role: String, content: String }
 
@@ -234,24 +270,36 @@ async fn run_telegram_loop(state: Arc<AppState>) {
                 for line in lines {
                     if let Some((source, rest)) = line.split_once('|') {
                         if source == "WHATSAPP" {
-                            if let Some((from, msg)) = rest.split_once('|') {
-                                println!("{}📱 WA:{} {}", YELLOW, RESET, msg);
+                            // Format: WHATSAPP|JID|NAME|MESSAGE
+                            if let Some((jid_and_name, msg)) = rest.split_once('|') {
+                                let parts: Vec<&str> = jid_and_name.splitn(2, '|').collect();
+                                let jid = parts.get(0).unwrap_or(&"");
+                                let name = parts.get(1).unwrap_or(&"unknown");
+                                let msg = msg.trim();
                                 
-                                // Use a placeholder chat_id for WhatsApp (9999999999)
-                                let response = clean_output(&process_telegram_message(&state, msg, 9999999999).await);
+                                if msg.is_empty() {
+                                    continue;
+                                }
+                                
+                                println!("{}📱 WA ({}): {} {}", YELLOW, name, msg, RESET);
+                                
+                                // Generate chat_id from JID hash for user identification
+                                let chat_id = generate_chat_id_from_jid(jid);
+                                
+                                let response = clean_output(&process_telegram_message(&state, msg, chat_id).await);
                                 
                                 // Send back via WhatsApp
-                                send_whatsapp_message(&from, &response);
+                                send_whatsapp_message(jid, &response);
                                 
-                                println!("{}📤 WA Sent response{}", GREEN, RESET);
-                                if std::path::Path::new("/tmp/amor_speech_mode").exists() {
-                                    speak(&response);
-                                }
+                                println!("{}📤 WA Sent to {}: {}{}", GREEN, name, &response[..response.len().min(50)], RESET);
                             }
                         }
                     }
                 }
                 std::fs::remove_file(whatsapp_queue).ok();
+                
+                // Send any pending outgoing WhatsApp messages
+                check_and_send_whatsapp_out();
             }
         }
         
