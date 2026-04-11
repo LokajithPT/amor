@@ -965,20 +965,19 @@ eprintln!("DEBUG: Processing {} manual calls (console)", manual_calls.len());
                     }
                 } else if fname == "whatsapp" {
                     if let (Some(name), Some(msg)) = (extract_json_arg(a, "name"), extract_json_arg(a, "message")) {
-                        let jid = lookup_whatsapp_jid(name);
-                        if jid.is_some() {
-                            let j = jid.unwrap();
+                        let jid = lookup_whatsapp_jid(&name);
+                        if let Some(j) = jid {
                             let out = std::process::Command::new("python3")
                                 .arg("/home/fuckall/whatsapp_wrapper.py")
                                 .arg("send")
                                 .arg(&j)
                                 .arg(&msg)
                                 .output();
-                            if let Ok(o) = out {
-                                if String::from_utf8_lossy(&o.stdout).contains("✓") {
+                            if let Ok(output_val) = out {
+                                if String::from_utf8_lossy(&output_val.stdout).contains("✓") {
                                     o.push(format!("✅ Sent to {} on WhatsApp", name));
                                 } else {
-                                    o.push(format!("❌ Failed: {}", String::from_utf8_lossy(&o.stderr)));
+                                    o.push(format!("❌ Failed: {}", String::from_utf8_lossy(&output_val.stderr)));
                                 }
                             } else {
                                 o.push("❌ Error".to_string());
