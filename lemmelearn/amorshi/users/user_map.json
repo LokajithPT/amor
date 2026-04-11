@@ -4,7 +4,6 @@
       "telegram": "5678901234",
       "name": "Loki",
       "has_tools": true,
-      "created_at": "2024",
       "notes": "Primary admin"
     },
     "naveen": {
@@ -12,9 +11,14 @@
       "name": "Naveen",
       "platforms": ["whatsapp"],
       "memory_file": "naveen.md",
-      "identified": false,
-      "created_at": "2026-04-11",
       "custom_rules": "Keep it casual, bro style"
+    },
+    "thittar": {
+      "whatsapp": "158802238242897@lid",
+      "name": "Thittar",
+      "platforms": ["whatsapp"],
+      "memory_file": "thittar.md",
+      "custom_rules": "Keep it loving, playful, cute. Use emojis. She doesn't chat much so keep messages short and sweet"
     }
   }
 }
