@@ -160,6 +160,31 @@ fn check_and_send_whatsapp_out() {
     }
 }
 
+fn lookup_whatsapp_jid(name: &str) -> Option<String> {
+    let user_map_path = "/home/fuckall/code/amor/lemmelearn/amorshi/users/user_map.json";
+    if let Ok(content) = std::fs::read_to_string(user_map_path) {
+        if let Ok(map) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(users) = map.get("users").and_then(|u| u.as_object()) {
+                // Try exact match first
+                if let Some(user) = users.get(name) {
+                    if let Some(jid) = user.get("whatsapp").and_then(|j| j.as_str()) {
+                        return Some(jid.to_string());
+                    }
+                }
+                // Try case-insensitive match
+                for (username, data) in users {
+                    if username.to_lowercase() == name.to_lowercase() {
+                        if let Some(jid) = data.get("whatsapp").and_then(|j| j.as_str()) {
+                            return Some(jid.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ChatMsg { role: String, content: String }
 
@@ -868,6 +893,14 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
                 if !q.is_empty() {
                     manual_calls.push(("memrecall".to_string(), format!(r#"{{"query":"{}"}}"#, q)));
                 }
+            } else if line.starts_with("whatsapp:") {
+                // Format: "whatsapp: name|message"
+                let rest = line[9..].trim();
+                if let Some((name, msg)) = rest.split_once('|') {
+                    if !name.is_empty() && !msg.is_empty() {
+                        manual_calls.push(("whatsapp".to_string(), format!(r#"{{"name":"{}","message":"{}"}}"#, name, msg)));
+                    }
+                }
             }
         }
         
@@ -917,7 +950,7 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
                     }
                 }
             } 
-            eprintln!("DEBUG: Processing {} manual calls (console)", manual_calls.len());
+eprintln!("DEBUG: Processing {} manual calls (console)", manual_calls.len());
             // Process manual tool calls from text
             for (name, args) in manual_calls {
                 let fname = name.as_str();
@@ -930,9 +963,34 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
                     if let Some(c) = extract_json_arg(a, "command") {
                         o.push(tool_executor.bash.execute(&format!("bash:\"{}\"", c)).output);
                     }
+                } else if fname == "whatsapp" {
+                    if let (Some(name), Some(msg)) = (extract_json_arg(a, "name"), extract_json_arg(a, "message")) {
+                        let jid = lookup_whatsapp_jid(name);
+                        if jid.is_some() {
+                            let j = jid.unwrap();
+                            let out = std::process::Command::new("python3")
+                                .arg("/home/fuckall/whatsapp_wrapper.py")
+                                .arg("send")
+                                .arg(&j)
+                                .arg(&msg)
+                                .output();
+                            if let Ok(o) = out {
+                                if String::from_utf8_lossy(&o.stdout).contains("✓") {
+                                    o.push(format!("✅ Sent to {} on WhatsApp", name));
+                                } else {
+                                    o.push(format!("❌ Failed: {}", String::from_utf8_lossy(&o.stderr)));
+                                }
+                            } else {
+                                o.push("❌ Error".to_string());
+                            }
+                        } else {
+                            o.push(format!("❌ Unknown: {}", name));
+                        }
+                    }
                 }
             }
             o 
+
         } else { tool_executor.execute(&content).await.1 };
         if outs.is_empty() { chat_hist.push(ChatMsg { role: "assistant".to_string(), content: content.clone() }); return content; }
         if only_structured_commands || only_manual_commands {
