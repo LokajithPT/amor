@@ -251,3 +251,39 @@ pgrep -f amor
 - thittar (gf) added with loving/cute custom rules (JID: 158802238242897@lid)
 - Naveen added as casual WhatsApp contact (JID: 917010381233@s.whatsapp.net)
 - Multi-user system working (Telegram + WhatsApp)
+
+---
+
+## Deploy (MUST DO AFTER EDITS)
+
+```bash
+# 1. SSH to Pi
+ssh fuckall@fuckall
+
+# 2. Pull code
+cd /home/fuckall/code/amor
+git pull origin master
+
+# 3. Copy amorshi (IMPORTANT!)
+scp -r /home/skedaddle/code/amor/lemmelearn/amorshi fuckall@fuckall:/home/fuckall/code/amor/lemmelearn/
+
+# 4. Build
+cd lemmelearn && cargo build --release
+
+# 5. Deploy
+cp target/release/lemmelearn /home/fuckall/amor
+
+# 6. Restart
+pkill -f amor
+/home/fuckall/amor serve &
+```
+
+**After editing amorshi files on laptop, MUST copy to Pi:**
+```bash
+scp -r /home/skedaddle/code/amor/lemmelearn/amorshi fuckall@fuckall:/home/fuckall/code/amor/lemmelearn/
+```
+
+Or copy single file:
+```bash
+scp /path/to/file fuckall@fuckall:/home/fuckall/code/amor/lemmelearn/amorshi/
+```
