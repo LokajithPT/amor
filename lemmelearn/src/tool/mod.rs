@@ -4,6 +4,7 @@ pub mod reminders;
 pub mod memory;
 pub mod scripts;
 pub mod bash;
+pub mod worker;
 
 pub use search::WebSearch;
 pub use files::FileOps;
@@ -11,6 +12,7 @@ pub use reminders::Reminders;
 pub use memory::Memory;
 pub use scripts::Scripts;
 pub use bash::Bash;
+pub use worker::Worker;
 
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +38,7 @@ pub struct ToolExecutor {
     pub memory: Memory,
     pub scripts: Scripts,
     pub bash: Bash,
+    pub worker: Worker,
 }
 
 impl ToolExecutor {
@@ -47,6 +50,7 @@ impl ToolExecutor {
             memory: Memory::new(),
             scripts: Scripts::new(),
             bash: Bash::new(),
+            worker: Worker::new(),
         }
     }
 
@@ -219,6 +223,12 @@ impl ToolExecutor {
                     // script_run - run a script
                     eprintln!("EXTRACTED: script_run={}", path);
                     let result = self.scripts.execute(&format!("run:{}", path));
+                    outputs.push(format!("[{}] → {}", func_name, result.output));
+                } else if func_name == "worker" {
+                    // worker - spawn, kill, or check background workers
+                    let worker_cmd = if !command.is_empty() { command.clone() } else { value.clone() };
+                    eprintln!("EXTRACTED: worker={}", worker_cmd);
+                    let result = self.worker.execute(&worker_cmd);
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "check_quota" {
                     // check_quota doesn't need value - it uses stored API key

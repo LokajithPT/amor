@@ -224,6 +224,7 @@ struct AppState {
     config: config::Config,
     model: String,
     master: String,
+    memory: String,
 }
 
 fn write_pid(pid: u32) {
@@ -275,6 +276,7 @@ fn run_telegram_service() {
     let config = amorshi.config.clone();
     let model = amorshi.config.model.clone();
     let master = amorshi.master.clone();
+    let memory = amorshi.memory.clone(); // memory.md loaded once at startup
 
     println!("{}=== AMOR Service ==={}", BOLD, RESET);
     println!("{}Model: {}{}", BLUE, model, RESET);
@@ -287,7 +289,7 @@ fn run_telegram_service() {
         std::process::exit(1);
     }
 
-    let state = AppState { config, model, master };
+    let state = AppState { config, model, master, memory };
     let state = Arc::new(state);
 
     write_pid(process::id());
@@ -531,21 +533,17 @@ async fn process_telegram_message(state: &AppState, input: &str, chat_id: i64) -
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     let base_path = std::path::PathBuf::from(format!("{}/amorshi", if home == "/home/fuckall" { "/home/fuckall" } else { &home }));
     
-    // Read global memory.md
-    let global_memory_path = base_path.join("memory.md");
-    let global_memory = std::fs::read_to_string(&global_memory_path).unwrap_or_default();
-    
-    // Read user-specific memory
+    // Read user-specific memory only (global memory loaded once at startup in state.memory)
     let user_memory_path = base_path.join("users").join(format!("{}.md", chat_id));
     let user_memory = std::fs::read_to_string(&user_memory_path).unwrap_or_default();
     
     // Check if user has tool access (for now, only chat_id 5678901234 has tools)
     let has_tools = chat_id == 5678901234;
     
-    // Build memory section
+    // Build memory section (global memory loaded once at startup)
     let mut memory_section = String::new();
-    if !global_memory.trim().is_empty() {
-        memory_section.push_str(&format!("\n## GLOBAL MEMORY:\n{}\n", global_memory.trim()));
+    if !state.memory.trim().is_empty() {
+        memory_section.push_str(&format!("\n## GLOBAL MEMORY:\n{}\n", state.memory.trim()));
     }
     if !user_memory.trim().is_empty() {
         memory_section.push_str(&format!("\n## THIS USER'S MEMORY:\n{}\n", user_memory.trim()));

@@ -62,6 +62,7 @@ impl Memory {
             } else {
                 cmd.replace("remember", "")
             };
+            let query = query.trim().to_string();
             let query = query.replace('"', "");
 
             return match fs::read_to_string(&self.path) {

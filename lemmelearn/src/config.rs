@@ -71,6 +71,7 @@ impl Config {
 pub struct AmorshiFiles {
     pub config: Config,
     pub master: String,
+    pub memory: String,
     pub reminders: String,
     pub tools: String,
 }
@@ -96,6 +97,7 @@ impl AmorshiFiles {
         let config = Config::load(&base_path.join("shit.cfg"))?;
         let master = fs::read_to_string(&base_path.join("master.md"))
             .map_err(|e| format!("Failed to read master.md: {}", e))?;
+        let memory = fs::read_to_string(&base_path.join("memory.md")).unwrap_or_default();
         let reminders = fs::read_to_string(&base_path.join("reminders.md"))
             .map_err(|e| format!("Failed to read reminders.md: {}", e))?;
         let tools = fs::read_to_string(&base_path.join("tools.md"))
@@ -104,6 +106,7 @@ impl AmorshiFiles {
         Ok(Self {
             config,
             master,
+            memory,
             reminders,
             tools,
         })
