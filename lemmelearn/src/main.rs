@@ -657,6 +657,14 @@ async fn process_telegram_message(state: &AppState, input: &str, chat_id: i64) -
                 if !query.is_empty() {
                     manual_calls.push(("memrecall".to_string(), format!(r#"{{"query":"{}"}}"#, query)));
                 }
+            } else if line.starts_with("whatsapp:") {
+                // Format: "whatsapp: name|message"
+                let rest = line[9..].trim();
+                if let Some((name, msg)) = rest.split_once('|') {
+                    if !name.is_empty() && !msg.is_empty() {
+                        manual_calls.push(("whatsapp".to_string(), format!(r#"{{"name":"{}","message":"{}"}}"#, name, msg)));
+                    }
+                }
             }
         }
         eprintln!("DEBUG: manual_calls parsed: {:?}", manual_calls);
@@ -730,6 +738,29 @@ async fn process_telegram_message(state: &AppState, input: &str, chat_id: i64) -
                 } else if fname == "bash" {
                     if let Some(c) = extract_json_arg(a, "command") {
                         o.push(tool_executor.bash.execute(&format!("bash:\"{}\"", c)).output);
+                    }
+                } else if fname == "whatsapp" {
+                    if let (Some(name), Some(msg)) = (extract_json_arg(a, "name"), extract_json_arg(a, "message")) {
+                        let jid = lookup_whatsapp_jid(&name);
+                        if let Some(j) = jid {
+                            let out = std::process::Command::new("python3")
+                                .arg("/home/fuckall/whatsapp_wrapper.py")
+                                .arg("send")
+                                .arg(&j)
+                                .arg(&msg)
+                                .output();
+                            if let Ok(output_val) = out {
+                                if String::from_utf8_lossy(&output_val.stdout).contains("✓") {
+                                    o.push(format!("✅ Sent to {} on WhatsApp", name));
+                                } else {
+                                    o.push(format!("❌ Failed: {}", String::from_utf8_lossy(&output_val.stderr)));
+                                }
+                            } else {
+                                o.push("❌ Error".to_string());
+                            }
+                        } else {
+                            o.push(format!("❌ Unknown: {}", name));
+                        }
                     }
                 }
             }
