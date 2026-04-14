@@ -533,21 +533,17 @@ async fn process_telegram_message(state: &AppState, input: &str, chat_id: i64) -
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     let base_path = std::path::PathBuf::from(format!("{}/amorshi", if home == "/home/fuckall" { "/home/fuckall" } else { &home }));
     
-    // Read user-specific memory only (global memory loaded once at startup in state.memory)
-    let user_memory_path = base_path.join("users").join(format!("{}.md", chat_id));
-    let user_memory = std::fs::read_to_string(&user_memory_path).unwrap_or_default();
-    
     // Check if user has tool access (for now, only chat_id 5678901234 has tools)
     let has_tools = chat_id == 5678901234;
     
-    // Build memory section (global memory loaded once at startup)
+    // Build memory section (global memory loaded once at startup - user memory ONLY via memrecall)
     let mut memory_section = String::new();
     if !state.memory.trim().is_empty() {
         memory_section.push_str(&format!("\n## GLOBAL MEMORY:\n{}\n", state.memory.trim()));
     }
-    if !user_memory.trim().is_empty() {
-        memory_section.push_str(&format!("\n## THIS USER'S MEMORY:\n{}\n", user_memory.trim()));
-    }
+    // User-specific memory now only loaded when explicitly asked via memrecall tool
+    // let user_memory_path = base_path.join("users").join(format!("{}.md", chat_id));
+    // let user_memory = std::fs::read_to_string(&user_memory_path).unwrap_or_default();
     
     // Build system prompt based on user
     let mut full_system = state.master.clone();
@@ -839,6 +835,7 @@ async fn run_console_chat(config: &mut config::Config, model: String, master: St
 
 async fn process_console_message(_client: &reqwest::Client, config: &mut config::Config, chat_hist: &mut Vec<ChatMsg>, tool_executor: &ToolExecutor, model: &str) -> String {
     let mut loop_count = 0;
+    let mut last_content = String::new();
     while loop_count < 3 {
         loop_count += 1;
         if chat_hist.len() >= 10 {
@@ -891,6 +888,7 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
         let body: ChatResponse = match serde_json::from_str(&body_str) { Ok(r) => r, Err(e) => return format!("Parse: {}", e) };
         let Some(choice) = body.choices.get(0) else { break };
         let content = choice.message.content.clone();
+        last_content = content.clone();
         
         // Parse simple tool call format: "websearch: query", "bash: command", etc
         let mut manual_calls: Vec<(String, String)> = Vec::new();
@@ -902,9 +900,26 @@ async fn process_console_message(_client: &reqwest::Client, config: &mut config:
                 if !query.is_empty() {
                     manual_calls.push(("websearch".to_string(), format!(r#"{{"query":"{}"}}"#, query)));
                 }
-            } else if line.starts_with("bash:") {
-                let cmd = line[5..].trim();
-                if !cmd.is_empty() {
+            } else if line.starts_with("bash:") || line.starts_with("execute_command:") || line.contains("execute_command") || line.contains("<server_name>execute_command") {
+                // Handle bash:, execute_command:, and XML-style MCP tool tags
+                let mut clean = line.to_string();
+                // Strip XML tags
+                while let Some(start) = clean.find("<") {
+                    if let Some(end) = clean[start..].find(">") {
+                        clean = format!("{}{}", &clean[..start], &clean[start+end+1..]);
+                    } else { break; }
+                }
+                let cmd = clean.trim().to_string();
+                // Now extract command value
+                if cmd.contains("\"command\":") {
+                    if let Some(c) = cmd.split("\"command\":").last() {
+                        let c = c.split(',').next().unwrap_or(c).split('}').next().unwrap_or(c);
+                        let c = c.trim().trim_matches('"').trim();
+                        if !c.is_empty() && c.len() < 500 {
+                            manual_calls.push(("bash".to_string(), format!(r#"{{"command":"{}"}}"#, c)));
+                        }
+                    }
+                } else if !cmd.is_empty() && !cmd.starts_with('{') {
                     manual_calls.push(("bash".to_string(), format!(r#"{{"command":"{}"}}"#, cmd)));
                 }
             } else if line.starts_with("memsave:") {
@@ -1019,7 +1034,10 @@ eprintln!("DEBUG: Processing {} manual calls (console)", manual_calls.len());
         if only_structured_commands || only_manual_commands {
             return outs.join("\n");
         }
+        // Tool ran - add results and continue loop for second API call
         chat_hist.push(ChatMsg { role: "user".to_string(), content: format!("Result: {}", outs.join("\n")) });
+        // Loop continues, will return response from next API call
     }
-    "No response".to_string()
+    // If we hit here after 3 loops, return last content
+    last_content
 }

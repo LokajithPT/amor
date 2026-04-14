@@ -1,0 +1,17 @@
+[Unit]
+Description=WhatsApp MCP Bridge for AMOR
+After=network.target
+
+[Service]
+Type=simple
+User=fuckall
+WorkingDirectory=/home/fuckall
+Environment=PATH=/home/fuckall/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/fuckall
+ExecStartPre=/bin/sleep 15
+ExecStart=/bin/bash -c "cd /home/fuckall/whatsapp-bridge && go run main.go >> /home/fuckall/whatsapp_bridge.log 2>&1"
+Restart=on-failure
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

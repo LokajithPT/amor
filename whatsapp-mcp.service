@@ -1,0 +1,18 @@
+[Unit]
+Description=WhatsApp MCP Server for AMOR
+After=whatsapp-bridge.service
+Requires=whatsapp-bridge.service
+
+[Service]
+Type=simple
+User=fuckall
+WorkingDirectory=/home/fuckall
+Environment=PATH=/home/fuckall/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/fuckall
+ExecStartPre=/bin/sleep 10
+ExecStart=/bin/bash -c "cd /home/fuckall/whatsapp-mcp-server && /home/fuckall/.local/bin/uv run python main.py both >> /home/fuckall/mcp_server.log 2>&1"
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

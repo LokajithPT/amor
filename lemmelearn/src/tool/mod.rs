@@ -59,7 +59,7 @@ impl ToolExecutor {
         let text = response.to_lowercase().replace("speach", "speech");
         let orig = response.to_string();
         
-        eprintln!("TOOL EXECUTE CALLED with: {}", &response[..response.len().min(200)]);
+        // // eprintln!("TOOL EXECUTE CALLED with: {}", &response[..response.len().min(200)]);
         
         if orig.contains("tool_calls") {
             if let Some(start) = orig.find("{\"tool_calls\":") {
@@ -171,71 +171,71 @@ impl ToolExecutor {
                                 reminder_minutes = m;
                             }
                         }
-                        eprintln!("EXTRACTED: reminder message={} minutes={}", reminder_message, reminder_minutes);
+                        // eprintln!("EXTRACTED: reminder message={} minutes={}", reminder_message, reminder_minutes);
                         let result = self.reminders.execute(&format!("set {} | {}", reminder_message, reminder_minutes));
                         outputs.push(format!("[{}] → {}", func_name, result.output));
                     }
                 }
                 
                 if !value.is_empty() && func_name == "memsave" {
-                    eprintln!("EXTRACTED: memsave={}", value);
+                    // eprintln!("EXTRACTED: memsave={}", value);
                     let result = self.memory.execute(&format!("memsave:{}", value));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if !value.is_empty() && func_name == "memrecall" {
-                    eprintln!("EXTRACTED: memrecall={}", value);
+                    // eprintln!("EXTRACTED: memrecall={}", value);
                     let result = self.memory.execute(&format!("memrecall:{}", value));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if !value.is_empty() && func_name == "websearch" {
-                    eprintln!("EXTRACTED: websearch={}", value);
+                    // eprintln!("EXTRACTED: websearch={}", value);
                     let result = self.web_search.execute(&value).await;
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "file_edit" && !path.is_empty() {
                     if let Ok(line_num) = line.parse::<usize>() {
                         let content = value.clone();
-                        eprintln!("EXTRACTED: file_edit path={} line={} content={}", path, line_num, content);
+                        // eprintln!("EXTRACTED: file_edit path={} line={} content={}", path, line_num, content);
                         let result = self.file_ops.execute(&format!("EDIT: {}:{}|{}", path, line_num, content));
                         outputs.push(format!("[{}] → {}", func_name, result.output));
                     }
                 } else if func_name == "file_write" && !path.is_empty() {
-                    eprintln!("EXTRACTED: file_write path={} content={}", path, value);
+                    // eprintln!("EXTRACTED: file_write path={} content={}", path, value);
                     let result = self.file_ops.execute(&format!("WRITE: {}|{}", path, value));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "file_read" && !path.is_empty() {
-                    eprintln!("EXTRACTED: file_read={}", path);
+                    // eprintln!("EXTRACTED: file_read={}", path);
                     let result = self.file_ops.execute(&format!("READ: {}", path));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "ls" && !path.is_empty() {
-                    eprintln!("EXTRACTED: ls={}", path);
+                    // eprintln!("EXTRACTED: ls={}", path);
                     let result = self.file_ops.execute(&format!("LS: {}", path));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if !value.is_empty() && func_name == "bash" {
-                    eprintln!("EXTRACTED: bash={}", value);
+                    // eprintln!("EXTRACTED: bash={}", value);
                     let result = self.bash.execute(&format!("bash:\"{}\"", value));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "execute_command" && !command.is_empty() {
                     // execute_command - run a bash command
                     // (Timers should use reminder tool, but this runs any other command)
                     let cmd = format!("bash:\"{}\"", command);
-                    eprintln!("EXTRACTED: execute_command={}", cmd);
+                    // eprintln!("EXTRACTED: execute_command={}", cmd);
                     let result = self.bash.execute(&cmd);
                     outputs.push(format!("[execute] → {}", result.output));
                 } else if func_name == "script_run" && !path.is_empty() {
                     // script_run - run a script
-                    eprintln!("EXTRACTED: script_run={}", path);
+                    // eprintln!("EXTRACTED: script_run={}", path);
                     let result = self.scripts.execute(&format!("run:{}", path));
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "worker" {
                     // worker - spawn, kill, or check background workers
                     let worker_cmd = if !command.is_empty() { command.clone() } else { value.clone() };
-                    eprintln!("EXTRACTED: worker={}", worker_cmd);
+                    // eprintln!("EXTRACTED: worker={}", worker_cmd);
                     let result = self.worker.execute(&worker_cmd);
                     outputs.push(format!("[{}] → {}", func_name, result.output));
                 } else if func_name == "check_quota" {
                     // check_quota doesn't need value - it uses stored API key
-                    eprintln!("EXTRACTED: check_quota");
+                    // eprintln!("EXTRACTED: check_quota");
                     outputs.push(format!("[{}] → Use the check_quota command directly in terminal to verify API key status", func_name));
                 } else {
-                    eprintln!("DEBUG: unhandled func_name={} value={} path={}", func_name, value, path);
+                    // eprintln!("DEBUG: unhandled func_name={} value={} path={}", func_name, value, path);
                 }
             }
         }
@@ -338,7 +338,7 @@ impl ToolExecutor {
             message = message.replace("minute", "").replace("min", "").replace("hour", "").replace("second", "").trim().to_string();
             
             if !message.is_empty() && message.len() < 100 {
-                eprintln!("REMINDER FALLBACK: message={} minutes={}", message, minutes);
+                // eprintln!("REMINDER FALLBACK: message={} minutes={}", message, minutes);
                 let result = self.reminders.execute(&format!("set {} | {}", message, minutes));
                 outputs.push(format!("[reminder] → {}", result.output));
             }
@@ -347,21 +347,21 @@ impl ToolExecutor {
         // Speech mode - simple toggle - fallback when model doesn't use tool_calls
         // Also catch common typos like "speach"
         let lower = text.to_lowercase().replace("speach", "speech");
-        eprintln!("SPEECH CHECK: lower={}", lower);
+        // // eprintln!("SPEECH CHECK: lower={}", lower);
         
         if lower.contains("speech") && (lower.contains(" on") || lower.contains("on ") || lower.contains("mode")) || lower.contains("voice on") || lower.contains("talk on") || lower.contains("voice mode") || lower.contains("talk mode") {
-            eprintln!("FOUND: speech on pattern!");
+            // // eprintln!("FOUND: speech on pattern!");
             std::fs::write("/tmp/amor_speech_mode", "1").ok();
             outputs.push("__SPEECH_ON__".to_string());
         } else if lower.contains("speech") && (lower.contains(" off") || lower.contains("off ") || lower.contains("mode off")) || lower.contains("voice off") || lower.contains("talk off") || (lower.contains("exit") && std::path::Path::new("/tmp/amor_speech_mode").exists()) {
-            eprintln!("FOUND: speech off pattern!");
+            // eprintln!("FOUND: speech off pattern!");
             std::fs::remove_file("/tmp/amor_speech_mode").ok();
             outputs.push("__SPEECH_OFF__".to_string());
         }
         
         // Also check bash commands for speech mode
         if lower.contains("echo") && lower.contains("speech") {
-            eprintln!("SPEECH via bash detected");
+            // eprintln!("SPEECH via bash detected");
             std::fs::write("/tmp/amor_speech_mode", "1").ok();
             outputs.push("__SPEECH_ON__".to_string());
         }

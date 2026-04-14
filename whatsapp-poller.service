@@ -1,0 +1,18 @@
+[Unit]
+Description=WhatsApp Message Poller for AMOR
+After=whatsapp-mcp.service
+Requires=whatsapp-mcp.service
+
+[Service]
+Type=simple
+User=fuckall
+WorkingDirectory=/home/fuckall
+Environment=PATH=/home/fuckall/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/bin/sleep 5
+ExecStart=/bin/bash -c "python3 /home/fuckall/whatsapp_poller.py >> /home/fuckall/poller.log 2>&1"
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

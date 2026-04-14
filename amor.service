@@ -1,0 +1,16 @@
+[Unit]
+Description=AMOR Telegram Bot
+After=whatsapp-poller.service
+Requires=whatsapp-poller.service
+
+[Service]
+Type=simple
+User=fuckall
+WorkingDirectory=/home/fuckall
+ExecStartPre=/bin/sleep 5
+ExecStart=/home/fuckall/amor serve
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
